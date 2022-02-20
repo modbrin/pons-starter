@@ -6,10 +6,21 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include "main.h"
 #include "shader.h"
 #include "utils.h"
+#include "camera.h"
 
 int scrWidth = 1000, scrHeight = 1000;
+
+float lastX = (float)scrWidth / 2.0f, lastY = (float)scrHeight / 2.0f;
+
+float deltaTime = 0.0f;	// Time between current frame and last frame
+float lastFrame = 0.0f; // Time of last frame
+float mixValue = 0.0f;
+bool firstMouse = true;
+
+Camera primaryCamera(glm::vec3(0.0, 0.0, 3.0));
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -18,7 +29,26 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     glViewport(0, 0, width, height);
 }
 
-float mixValue = 0.0f;
+void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+    if (firstMouse)
+    {
+        lastX = xpos;
+        lastY = ypos;
+        firstMouse = false;
+    }
+
+    float xoffset = xpos - lastX;
+    float yoffset = lastY - ypos; // reversed since y-coordinates range from bottom to top
+    lastX = xpos;
+    lastY = ypos;
+
+    primaryCamera.ProcessMouseMovement(xoffset, yoffset);
+}
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    primaryCamera.ProcessMouseScroll(yoffset);
+}
 
 void processInput(GLFWwindow *window)
 {
@@ -29,15 +59,35 @@ void processInput(GLFWwindow *window)
 
     if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
     {
-        mixValue += 0.0001f; // change this value accordingly (might be too slow or too fast based on system hardware)
+        mixValue += 1.0f * deltaTime; // change this value accordingly (might be too slow or too fast based on system hardware)
         if(mixValue >= 1.0f)
             mixValue = 1.0f;
     }
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
     {
-        mixValue -= 0.0001f; // change this value accordingly (might be too slow or too fast based on system hardware)
+        mixValue -= 1.0f * deltaTime; // change this value accordingly (might be too slow or too fast based on system hardware)
         if (mixValue <= 0.0f)
             mixValue = 0.0f;
+    }
+
+    const float cameraSpeed = 2.5f * deltaTime; // adjust accordingly
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+        primaryCamera.ProcessKeyboard(ECameraMovement::FORWARD, deltaTime);
+    }
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+        primaryCamera.ProcessKeyboard(ECameraMovement::BACKWARD, deltaTime);
+    }
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+        primaryCamera.ProcessKeyboard(ECameraMovement::LEFT, deltaTime);
+    }
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+        primaryCamera.ProcessKeyboard(ECameraMovement::RIGHT, deltaTime);
+    }
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
+        primaryCamera.ProcessKeyboard(ECameraMovement::UP, deltaTime);
+    }
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
+        primaryCamera.ProcessKeyboard(ECameraMovement::DOWN, deltaTime);
     }
 }
 
@@ -66,6 +116,8 @@ int main()
         return -1;
     }
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetScrollCallback(window, scroll_callback);
 
     float vertices[] = {
             -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
@@ -181,6 +233,10 @@ int main()
 
     while(!glfwWindowShouldClose(window))
     {
+        float currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
         processInput(window);
 
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -199,6 +255,8 @@ int main()
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
         glBindVertexArray(VAO);
 
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
         for(unsigned int i = 0; i < 10; i++)
         {
             glm::mat4 model = glm::mat4(1.0f);
@@ -208,11 +266,11 @@ int main()
             }
             model = glm::scale(model, glm::vec3(1.0f));
 
-            glm::mat4 view = glm::mat4(1.0f);
-            view = glm::translate(view, glm::vec3(0.0f, 0.0f, -5.0f));
+            glm::mat4 view;
+            view = primaryCamera.GetViewMatrix();
 
             glm::mat4 projection;
-            projection = glm::perspective(glm::radians(45.0f), (float) scrWidth / (float) scrHeight, 0.1f, 100.0f);
+            projection = glm::perspective(glm::radians(primaryCamera.GetZoom()), (float) scrWidth / (float) scrHeight, 0.1f, 100.0f);
 
             glm::mat4 mvpMat = projection * view * model;
 

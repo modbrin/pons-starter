@@ -9,11 +9,13 @@ find_package(gli CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 
 add_executable(learnopengl
-        main.cpp
-        shader.cpp
-        shader.h
-        utils.h
-        )
+        src/main.cpp
+        src/shader.cpp
+        src/shader.h
+        src/utils.h
+        src/camera.cpp
+        src/camera.h
+        src/main.h src/utils.cpp)
 
 target_link_libraries(learnopengl PRIVATE glfw)
 target_link_libraries(learnopengl PRIVATE glad::glad)

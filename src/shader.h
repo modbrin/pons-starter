@@ -1,5 +1,5 @@
-#ifndef SHADER_MANAGER_H
-#define SHADER_MANAGER_H
+#ifndef PONS_SHADER_H
+#define PONS_SHADER_H
 
 #include <filesystem>
 #include <fstream>
@@ -27,4 +27,4 @@ private:
 };
 
 
-#endif //SHADER_MANAGER_H
+#endif //PONS_SHADER_H
