@@ -262,9 +262,10 @@ int main()
         glm::mat4 projection;
         projection = glm::perspective(glm::radians(primaryCamera.GetZoom()), (float) scrWidth / (float) scrHeight, 0.1f, 100.0f);
         glm::mat4 mvpMat = projection * view * model;
-        glm::mat3 normalMat = glm::mat3(glm::transpose(glm::inverse(model)));
+        glm::mat3 normalMat = glm::mat3(glm::transpose(glm::inverse(view * model)));
         lightingShader.setMat4("mvp", mvpMat);
-        lightingShader.setMat4("model", model);
+        lightingShader.setMat4("mv", view * model);
+        lightingShader.setMat4("view", view);
         lightingShader.setMat3("normal", normalMat);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
