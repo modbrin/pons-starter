@@ -9,6 +9,7 @@ out vec3 ourFragPos;
 out vec3 ourViewPos;
 
 uniform mat4 mvp;
+uniform mat4 model;
 uniform mat3 normal;
 uniform vec3 viewPos;
 
@@ -16,7 +17,7 @@ void main()
 {
    gl_Position = mvp * vec4(aPos, 1.0);
    ourTexCoord = vec2(aTexCoord.s, 1.0 - aTexCoord.t);
-   ourFragPos = vec3(vec4(aPos, 1.0));
+   ourFragPos = vec3(model * vec4(aPos, 1.0));
    ourNormal = normal * aNormal;
    ourViewPos = viewPos;
 }
