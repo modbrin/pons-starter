@@ -214,16 +214,24 @@ int main()
 //    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 //    glVertexArrayElementBuffer(VAO, EBO);
 
-    GLuint textureID = createTexture("../../assets/uvchecker.DDS");
-    GLuint textureID2 = createTexture("../../assets/uvtemplate.DDS");
+    GLuint textureID1 = createTexture("../../assets/container.DDS");
+    GLuint textureID2 = createTexture("../../assets/container_specular.DDS");
+//    GLuint textureID3 = createTexture("../../assets/matrix.DDS");
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID1);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, textureID2);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glActiveTexture(GL_TEXTURE2);
+//    glBindTexture(GL_TEXTURE_2D, textureID3);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -252,9 +260,9 @@ int main()
 
         lightingShader.use();
         lightingShader.setVec3("viewPos", primaryCamera.GetPosition());
-        lightingShader.setVec3("material.ambient", 0.1745, 0.01175, 0.01175);
-        lightingShader.setVec3("material.diffuse", 0.61424, 0.04136, 0.04136);
-        lightingShader.setVec3("material.specular", 0.727811, 0.626959, 0.626959);
+        lightingShader.setInt("material.diffuse", 0);
+        lightingShader.setInt("material.specular", 1);
+        lightingShader.setInt("material.emissive", 2);
         lightingShader.setFloat("material.shininess", 76.8f);
         lightingShader.setVec3("light.position", lightPos);
         lightingShader.setVec3("light.ambient", ambientColor);
