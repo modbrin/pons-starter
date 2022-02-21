@@ -53,12 +53,10 @@ void Camera::ProcessKeyboard(ECameraMovement direction, float deltaTime)
 {
     float velocity = MovementSpeed * deltaTime;
     if (direction == FORWARD) {
-        glm::vec3 XZFront = glm::normalize(glm::vec3(Front.x, 0.0f, Front.z));
-        Position += XZFront * velocity;
+        Position += Front * velocity;
     }
     if (direction == BACKWARD) {
-        glm::vec3 XZFront = glm::normalize(glm::vec3(Front.x, 0.0f, Front.z));
-        Position -= XZFront * velocity;
+        Position -= Front * velocity;
     }
     if (direction == LEFT) {
         Position -= Right * velocity;

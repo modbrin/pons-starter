@@ -22,11 +22,11 @@ const float DEFAULT_PITCH        =  0.0f;
 const float DEFAULT_SPEED        =  2.5f;
 const float DEFAULT_SENSITIVITY  =  0.1f;
 const float DEFAULT_ZOOM         =  45.0f;
-const glm::vec3 DEFAULT_WORLD_UP = glm::vec3(0.0f, 1.0f, 0.0f);
+const glm::vec3 DEFAULT_WORLD_UP = glm::vec3(0.0f, 1.0f, 0.0f); // FIXME: this is potentially dangerous, don't set const from vec
 
 class Camera {
 public: // methods
-    Camera(glm::vec3 position = glm::vec3(0.0f), glm::vec3 up = DEFAULT_WORLD_UP, float yaw = DEFAULT_YAW, float pitch = DEFAULT_PITCH);
+    explicit Camera(glm::vec3 position = glm::vec3(0.0f), glm::vec3 up = DEFAULT_WORLD_UP, float yaw = DEFAULT_YAW, float pitch = DEFAULT_PITCH);
     Camera(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch);
 
     // returns the view matrix calculated using Euler Angles and the LookAt Matrix
@@ -41,6 +41,18 @@ public: // methods
     // processes input received from a mouse scroll-wheel event. Only requires input on the vertical wheel-axis
     void ProcessMouseScroll(float yoffset);
 
+    inline glm::vec3 GetPosition() {
+        return Position;
+    }
+    inline glm::vec3 GetFrontVector() {
+        return Front;
+    }
+    inline glm::vec3 GetRightVector() {
+        return Right;
+    }
+    inline glm::vec3 GetUpVector() {
+        return Up;
+    }
     inline float GetYaw() {
         return Yaw;
     }

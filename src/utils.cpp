@@ -141,3 +141,15 @@ glm::mat4 MyLookAt(const glm::vec3& eye, const glm::vec3& center, const glm::vec
     glm::mat4 translationMat = glm::make_mat4(translationMatSrc);
     return rotationMat * translationMat;
 }
+
+glm::mat3 GetUpperLeft3x3(const glm::mat4& source)
+{
+    auto *pSource = (const float*)glm::value_ptr(source);
+    float values[9];
+    for(size_t i = 0; i < 3; ++i) {
+        for(size_t j = 0; j < 3; ++j) {
+            values[i * 3 + j] = pSource[i * 4 + j];
+        }
+    }
+    return glm::make_mat3(values);
+}
