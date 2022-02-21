@@ -239,16 +239,27 @@ int main()
 
         processInput(window);
 
-        lightPos = glm::vec3(sin(currentFrame) * 2.0f, 1.0f, cos(currentFrame) * 2.0f);
+        float lightOffset = mixValue * 3.0f;
+        lightPos = glm::vec3(sin(lightOffset) * 2.0f, 1.0f, cos(lightOffset) * 2.0f);
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        glm::vec3 lightColor(1.0f);
+
+        glm::vec3 diffuseColor = lightColor   * glm::vec3(1.0f);
+        glm::vec3 ambientColor = diffuseColor * glm::vec3(1.0f);
+
         lightingShader.use();
-        lightingShader.setVec3("objectColor", 1.0f, 0.5f, 0.31f);
-        lightingShader.setVec3("lightColor",  1.0f, 1.0f, 1.0f);
-        lightingShader.setVec3("lightPos", lightPos);
         lightingShader.setVec3("viewPos", primaryCamera.GetPosition());
+        lightingShader.setVec3("material.ambient", 0.1745, 0.01175, 0.01175);
+        lightingShader.setVec3("material.diffuse", 0.61424, 0.04136, 0.04136);
+        lightingShader.setVec3("material.specular", 0.727811, 0.626959, 0.626959);
+        lightingShader.setFloat("material.shininess", 76.8f);
+        lightingShader.setVec3("light.position", lightPos);
+        lightingShader.setVec3("light.ambient", ambientColor);
+        lightingShader.setVec3("light.diffuse", diffuseColor);
+        lightingShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
 
 //        glBindTexture(GL_TEXTURE_2D, textureID);
 //        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
@@ -262,14 +273,13 @@ int main()
         glm::mat4 projection;
         projection = glm::perspective(glm::radians(primaryCamera.GetZoom()), (float) scrWidth / (float) scrHeight, 0.1f, 100.0f);
         glm::mat4 mvpMat = projection * view * model;
-        glm::mat3 normalMat = glm::mat3(glm::transpose(glm::inverse(view * model)));
+        glm::mat3 normalMat = glm::mat3(glm::transpose(glm::inverse(model)));
         lightingShader.setMat4("mvp", mvpMat);
-        lightingShader.setMat4("mv", view * model);
-        lightingShader.setMat4("view", view);
         lightingShader.setMat3("normal", normalMat);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
         lightingSourceShader.use();
+        lightingSourceShader.setVec3("lightSourceColor", diffuseColor);
         glBindVertexArray(lightVAO);
 
 //        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
