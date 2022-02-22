@@ -60,14 +60,16 @@ void processInput(GLFWwindow *window)
     if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
     {
         mixValue += 1.0f * deltaTime; // change this value accordingly (might be too slow or too fast based on system hardware)
-        if(mixValue >= 1.0f)
-            mixValue = 1.0f;
+        if(mixValue >= 5.0f) {
+            mixValue = 5.0f;
+        }
     }
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
     {
         mixValue -= 1.0f * deltaTime; // change this value accordingly (might be too slow or too fast based on system hardware)
-        if (mixValue <= 0.0f)
-            mixValue = 0.0f;
+        if (mixValue <= -5.0f) {
+            mixValue = -5.0f;
+        }
     }
 
     const float cameraSpeed = 2.5f * deltaTime; // adjust accordingly
@@ -197,8 +199,6 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 //    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-
-//    Shader simpleShader("../../shaders/simple.vert", "../../shaders/simple.frag");
     Shader lightingShader("../../shaders/simple.vert", "../../shaders/simpleColor.frag");
     Shader lightingSourceShader("../../shaders/simple.vert", "../../shaders/simpleLightSource.frag");
 
@@ -250,7 +250,12 @@ int main()
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glEnable(GL_DEPTH_TEST);
 
-    glm::vec3 lightPos = glm::vec3(1.2f, 1.0f, -2.0f);
+    glm::vec3 pointLightPositions[] = {
+            glm::vec3( 0.7f,  0.2f,  2.0f),
+            glm::vec3( 2.3f, -3.3f, -4.0f),
+            glm::vec3(-4.0f,  2.0f, -12.0f),
+            glm::vec3( 0.0f,  0.0f, -3.0f)
+    };
 
     while(!glfwWindowShouldClose(window))
     {
@@ -261,7 +266,6 @@ int main()
         processInput(window);
 
         float lightOffset = mixValue * 3.0f;
-        lightPos = glm::vec3(sin(lightOffset) * 2.0f, 1.0f, cos(lightOffset) * 2.0f);
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -277,18 +281,34 @@ int main()
         lightingShader.setInt("material.specular", 1);
         lightingShader.setInt("material.emissive", 2);
         lightingShader.setFloat("material.shininess", 76.8f);
-//        lightingShader.setVec3("light.position", lightPos);
-        lightingShader.setVec3("light.position",  primaryCamera.GetPosition());
-        lightingShader.setVec3("light.direction", primaryCamera.GetFrontVector());
-        lightingShader.setFloat("light.cutoff",   glm::cos(glm::radians(12.5f)));
-        lightingShader.setFloat("light.outerCutoff", glm::cos(glm::radians(16.0f)));
-        lightingShader.setVec3("light.ambient", ambientColor);
-        lightingShader.setVec3("light.diffuse", diffuseColor);
-        lightingShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
-//        lightingShader.setVec3("light.direction", -0.2f, -1.0f, -0.3f);
-        lightingShader.setFloat("light.constant",  1.0f);
-        lightingShader.setFloat("light.linear",    0.09f);
-        lightingShader.setFloat("light.quadratic", 0.032f);
+
+
+        lightingShader.setVec3("dirLight.direction", glm::vec3(-0.2f, -1.0f, -0.3f));
+        lightingShader.setVec3("dirLight.ambient", ambientColor);
+        lightingShader.setVec3("dirLight.diffuse", diffuseColor);
+        lightingShader.setVec3("dirLight.specular", 1.0f, 1.0f, 1.0f);
+
+        for (size_t i = 0; i < 4; ++i) {
+            std::string prefix = "pointLights[" + std::to_string(i) + "].";
+            lightingShader.setVec3(prefix + "position",  pointLightPositions[i] + glm::vec3(lightOffset, 0.0f, 0.0f));
+            lightingShader.setVec3(prefix + "ambient", ambientColor);
+            lightingShader.setVec3(prefix + "diffuse", diffuseColor);
+            lightingShader.setVec3(prefix + "specular", 1.0f, 1.0f, 1.0f);
+            lightingShader.setFloat(prefix + "constant",  1.0f);
+            lightingShader.setFloat(prefix + "linear",    0.19f);
+            lightingShader.setFloat(prefix + "quadratic", 0.232f);
+        }
+
+        lightingShader.setVec3("spotLight.position",  primaryCamera.GetPosition());
+        lightingShader.setVec3("spotLight.direction", primaryCamera.GetFrontVector());
+        lightingShader.setFloat("spotLight.cutoff",   glm::cos(glm::radians(12.5f)));
+        lightingShader.setFloat("spotLight.outerCutoff", glm::cos(glm::radians(16.0f)));
+        lightingShader.setVec3("spotLight.ambient", ambientColor);
+        lightingShader.setVec3("spotLight.diffuse", diffuseColor);
+        lightingShader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
+        lightingShader.setFloat("spotLight.constant",  1.0f);
+        lightingShader.setFloat("spotLight.linear",    0.09f);
+        lightingShader.setFloat("spotLight.quadratic", 0.032f);
 
 //        glBindTexture(GL_TEXTURE_2D, textureID);
 //        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
@@ -316,17 +336,18 @@ int main()
         lightingSourceShader.use();
         lightingSourceShader.setVec3("lightSourceColor", diffuseColor);
         glBindVertexArray(lightVAO);
-//        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-        glm::mat4 modelLS = glm::mat4(1.0f);
-        modelLS = glm::translate(modelLS, lightPos);
-        modelLS = glm::scale(modelLS, glm::vec3(0.5f));
-        glm::mat4 mvpMatLS = projection * view * modelLS;
-        lightingSourceShader.setMat4("mvp", mvpMatLS);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glBindVertexArray(0);
+        for (size_t i = 0; i < 4; ++i) {
+            glm::mat4 modelLS = glm::mat4(1.0f);
+            modelLS = glm::translate(modelLS, pointLightPositions[i] + glm::vec3(lightOffset, 0.0f, 0.0f));
+            modelLS = glm::scale(modelLS, glm::vec3(0.2f));
+            glm::mat4 mvpMatLS = projection * view * modelLS;
+            lightingSourceShader.setMat4("mvp", mvpMatLS);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
 
-        // now with the uniform matrix being replaced with new transformations, draw it again.
 //        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+        glBindVertexArray(0);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
