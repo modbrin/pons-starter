@@ -277,7 +277,11 @@ int main()
         lightingShader.setInt("material.specular", 1);
         lightingShader.setInt("material.emissive", 2);
         lightingShader.setFloat("material.shininess", 76.8f);
-        lightingShader.setVec3("light.position", lightPos);
+//        lightingShader.setVec3("light.position", lightPos);
+        lightingShader.setVec3("light.position",  primaryCamera.GetPosition());
+        lightingShader.setVec3("light.direction", primaryCamera.GetFrontVector());
+        lightingShader.setFloat("light.cutoff",   glm::cos(glm::radians(12.5f)));
+        lightingShader.setFloat("light.outerCutoff", glm::cos(glm::radians(16.0f)));
         lightingShader.setVec3("light.ambient", ambientColor);
         lightingShader.setVec3("light.diffuse", diffuseColor);
         lightingShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);

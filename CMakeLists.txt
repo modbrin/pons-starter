@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.10)
 project(learnopengl)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -15,7 +15,9 @@ add_executable(learnopengl
         src/utils.h
         src/camera.cpp
         src/camera.h
-        src/main.h src/utils.cpp)
+        src/main.h
+        src/utils.cpp
+        )
 
 target_link_libraries(learnopengl PRIVATE glfw)
 target_link_libraries(learnopengl PRIVATE glad::glad)
