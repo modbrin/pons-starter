@@ -120,6 +120,12 @@ GLuint createTexture(char const* Filename)
     return TextureID;
 }
 
+GLuint textureFromFile(std::string filename, std::string directory)
+{
+    std::string filepath = directory + "/" + filename;
+    return createTexture(filepath.c_str());
+}
+
 glm::mat4 MyLookAt(const glm::vec3& eye, const glm::vec3& center, const glm::vec3& up)
 {
     glm::vec3 cameraDirection = glm::normalize(eye - center);
