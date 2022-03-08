@@ -1,14 +1,11 @@
 #include <iostream>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <gli/texture2d.hpp>
-#include <gli/load.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "main.h"
 #include "shader.h"
-#include "utils.h"
 #include "camera.h"
 #include "common.h"
 
@@ -125,10 +122,15 @@ int main()
 
     Shader lightingShader("../shaders/litModel.vert", "../shaders/litModel.frag");
 //    Shader lightingSourceShader("../shaders/simple.vert", "../shaders/simpleLightSource.frag");
+    Shader outlineColorShader("../shaders/litModel.vert", "../shaders/outlineColor.frag");
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glEnable(GL_DEPTH_TEST);
+//    glDepthMask(GL_FALSE);
+//    glDepthFunc(GL_ALWAYS);
+    glEnable(GL_STENCIL_TEST);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
     glm::vec3 pointLightPositions[] = {
             glm::vec3( 0.7f,  0.2f,  2.0f),
@@ -150,7 +152,7 @@ int main()
         float lightOffset = mixValue * 3.0f;
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
         glm::vec3 lightColor(1.0f);
 
@@ -203,7 +205,29 @@ int main()
         lightingShader.setMat4("mvp", mvpMat);
         lightingShader.setMat4("model", model);
         lightingShader.setMat3("normal", normalMat);
+
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glStencilMask(0xFF);
+
         backpack.Draw(lightingShader);
+
+        glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+        glStencilMask(0x00);
+        glDisable(GL_DEPTH_TEST);
+        outlineColorShader.use();
+
+        glm::mat4 modelScaled = glm::mat4(1.0f);
+        modelScaled = glm::scale(modelScaled, glm::vec3(1.1f));
+        glm::mat4 mvpMatScaled = projection * view * modelScaled;
+        outlineColorShader.setMat4("mvp", mvpMatScaled);
+        outlineColorShader.setMat4("model", model);
+        outlineColorShader.setMat3("normal", normalMat);
+
+        backpack.Draw(outlineColorShader);
+
+        glStencilMask(0xFF);
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glEnable(GL_DEPTH_TEST);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
