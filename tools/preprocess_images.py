@@ -2,7 +2,7 @@ import os
 import sys
 import subprocess
 
-SUPPORTED_SOURCE_EXTENSIONS = [".jpg", ".png"]
+SUPPORTED_SOURCE_EXTENSIONS = [".jpg", ".png", ".tga"]
 INTERMEDIATE_FORMAT = ".bmp"    # format that compressonator understands as input
 TARGET_FORMAT = ".dds"          # desired output format for engine import
 COMPRESSONATOR_FORMAT = "DXT3"  # compressed format

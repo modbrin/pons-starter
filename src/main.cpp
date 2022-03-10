@@ -91,75 +91,15 @@ void processInput(GLFWwindow *window)
     }
 }
 
-int main()
-{
-    glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-#ifdef __APPLE__
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-#endif
-
-    GLFWwindow* window = glfwCreateWindow(scrWidth, scrHeight, "LearnOpenGL", nullptr, nullptr);
-    if (window == nullptr)
-    {
-        std::cout << "Failed to create GLFW window" << std::endl;
-        glfwTerminate();
-        return -1;
+class LightingSetupHelper{
+public:
+    LightingSetupHelper(): lightColor(1.0f) {
+        diffuseColor = lightColor   * glm::vec3(1.0f);
+        ambientColor = diffuseColor * glm::vec3(1.0f);
     }
-    glfwMakeContextCurrent(window);
+    void UpdateShader(Shader& lightingShader) {
+        float lightOffset = mixValue * 3.0f; // for demo purposes
 
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-    {
-        std::cout << "Failed to initialize GLAD" << std::endl;
-        return -1;
-    }
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-    glfwSetCursorPosCallback(window, mouse_callback);
-    glfwSetScrollCallback(window, scroll_callback);
-
-
-    Shader lightingShader("../shaders/litModel.vert", "../shaders/litModel.frag");
-//    Shader lightingSourceShader("../shaders/simple.vert", "../shaders/simpleLightSource.frag");
-    Shader outlineColorShader("../shaders/litModel.vert", "../shaders/outlineColor.frag");
-
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    glEnable(GL_DEPTH_TEST);
-//    glDepthMask(GL_FALSE);
-//    glDepthFunc(GL_ALWAYS);
-    glEnable(GL_STENCIL_TEST);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-
-    glm::vec3 pointLightPositions[] = {
-            glm::vec3( 0.7f,  0.2f,  2.0f),
-            glm::vec3( 2.3f, -3.3f, -4.0f),
-            glm::vec3(-4.0f,  2.0f, -12.0f),
-            glm::vec3( 0.0f,  0.0f, -3.0f)
-    };
-
-    Model backpack("../assets/backpack/backpack.obj");
-
-    while(!glfwWindowShouldClose(window))
-    {
-        float currentFrame = glfwGetTime();
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
-
-        processInput(window);
-
-        float lightOffset = mixValue * 3.0f;
-
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-        glm::vec3 lightColor(1.0f);
-
-        glm::vec3 diffuseColor = lightColor   * glm::vec3(1.0f);
-        glm::vec3 ambientColor = diffuseColor * glm::vec3(1.0f);
-
-        lightingShader.use();
         lightingShader.setVec3("viewPos", primaryCamera.GetPosition());
         lightingShader.setInt("material.diffuse", 0);
         lightingShader.setInt("material.specular", 1);
@@ -193,41 +133,196 @@ int main()
         lightingShader.setFloat("spotLight.constant",  1.0f);
         lightingShader.setFloat("spotLight.linear",    0.09f);
         lightingShader.setFloat("spotLight.quadratic", 0.032f);
+    }
+private:
+    glm::vec3 pointLightPositions[4] = {
+            glm::vec3( 0.7f,  0.2f,  2.0f),
+            glm::vec3( 2.3f, -3.3f, -4.0f),
+            glm::vec3(-4.0f,  2.0f, -12.0f),
+            glm::vec3( 0.0f,  0.0f, -3.0f)
+    };
+    glm::vec3 lightColor, diffuseColor, ambientColor;
+};
 
-        glm::mat4 view;
+class ModelSetupHelper{
+public:
+    ModelSetupHelper() : scale(glm::vec3(1.0f)), rotationAxis(glm::vec3(1.0f)), location(glm::vec3(0.0f)), rotationAngleRadians(0.0f) {}
+    void SetScale(glm::vec3 scale) {
+        this->scale = scale;
+    }
+    void SetRotation(glm::vec3 rotationAxis, float angleDegrees) {
+        this->rotationAxis = rotationAxis;
+        this->rotationAngleRadians = glm::radians(angleDegrees);
+    }
+    void SetLocation(glm::vec3 location) {
+        this->location = location;
+    }
+    void UpdateShader(Shader& shader) {
         view = primaryCamera.GetViewMatrix();
-        glm::mat4 projection;
         projection = glm::perspective(glm::radians(primaryCamera.GetZoom()), (float) scrWidth / (float) scrHeight, 0.1f, 100.0f);
 
         glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, location);
+        model = glm::rotate(model, rotationAngleRadians, rotationAxis);
+        model = glm::scale(model, scale);
         glm::mat4 mvpMat = projection * view * model;
         glm::mat3 normalMat = glm::mat3(glm::transpose(glm::inverse(model)));
-        lightingShader.setMat4("mvp", mvpMat);
-        lightingShader.setMat4("model", model);
-        lightingShader.setMat3("normal", normalMat);
+        shader.setMat4("mvp", mvpMat);
+        shader.setMat4("model", model);
+        shader.setMat3("normal", normalMat);
+    }
+private:
+    glm::mat4 view, projection;
+    glm::vec3 scale, rotationAxis, location;
+    float rotationAngleRadians;
+};
 
-        glStencilFunc(GL_ALWAYS, 1, 0xFF);
-        glStencilMask(0xFF);
+GLuint setupScreenVAO() {
+    float quadVertices[] = {
+            // positions   // texCoords
+            -1.0f,  1.0f,  0.0f, 1.0f,
+            -1.0f, -1.0f,  0.0f, 0.0f,
+            1.0f, -1.0f,  1.0f, 0.0f,
 
-        backpack.Draw(lightingShader);
+            -1.0f,  1.0f,  0.0f, 1.0f,
+            1.0f, -1.0f,  1.0f, 0.0f,
+            1.0f,  1.0f,  1.0f, 1.0f
+    };
+    unsigned int quadVAO, quadVBO;
+    glGenVertexArrays(1, &quadVAO);
+    glGenBuffers(1, &quadVBO);
+    glBindVertexArray(quadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    return quadVAO;
+}
 
-        glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-        glStencilMask(0x00);
-        glDisable(GL_DEPTH_TEST);
-        outlineColorShader.use();
+int main()
+{
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+#ifdef __APPLE__
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#endif
 
-        glm::mat4 modelScaled = glm::mat4(1.0f);
-        modelScaled = glm::scale(modelScaled, glm::vec3(1.1f));
-        glm::mat4 mvpMatScaled = projection * view * modelScaled;
-        outlineColorShader.setMat4("mvp", mvpMatScaled);
-        outlineColorShader.setMat4("model", model);
-        outlineColorShader.setMat3("normal", normalMat);
+    GLFWwindow* window = glfwCreateWindow(scrWidth, scrHeight, "LearnOpenGL", nullptr, nullptr);
+    if (window == nullptr)
+    {
+        std::cout << "Failed to create GLFW window" << std::endl;
+        glfwTerminate();
+        return -1;
+    }
+    glfwMakeContextCurrent(window);
 
-        backpack.Draw(outlineColorShader);
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        std::cout << "Failed to initialize GLAD" << std::endl;
+        return -1;
+    }
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetScrollCallback(window, scroll_callback);
 
-        glStencilMask(0xFF);
-        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+
+    Shader lightingShader("../shaders/litModel.vert", "../shaders/litModel.frag");
+//    Shader lightingSourceShader("../shaders/simple.vert", "../shaders/simpleLightSource.frag");
+    Shader outlineColorShader("../shaders/litModel.vert", "../shaders/outlineColor.frag");
+    Shader screenShader("../shaders/screen.vert", "../shaders/screen.frag");
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glEnable(GL_DEPTH_TEST);
+//    glDepthMask(GL_FALSE);
+//    glDepthFunc(GL_ALWAYS);
+    glEnable(GL_STENCIL_TEST);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_CULL_FACE);
+
+    LightingSetupHelper lsh;
+    ModelSetupHelper msh;
+
+//    Model backpack("../assets/backpack/backpack.obj");
+    Model grass("../assets/grass/grass.obj", true);
+    Model sponza("../assets/crytek_sponza/sponza.obj", true);
+
+
+    GLuint fbo;
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, scrWidth, scrHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+
+    GLuint rbo;
+    glGenRenderbuffers(1, &rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, scrWidth, scrHeight);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+//    glDeleteFramebuffers(1, &fbo);
+
+    GLuint quadVAO = setupScreenVAO();
+
+    while(!glfwWindowShouldClose(window))
+    {
+        float currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
+        processInput(window);
+
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        // FIRST PASS
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
+
+        lightingShader.use();
+        lsh.UpdateShader(lightingShader);
+
+        msh.SetLocation(glm::vec3(0.0, -1.0, -2.0));
+//        msh.SetScale(glm::vec3(0.003, 0.1, 0.1));
+        msh.UpdateShader(lightingShader);
+//        backpack.Draw(lightingShader);
+        grass.Draw(lightingShader);
+        sponza.Draw(lightingShader);
+
+//        glDisable(GL_CULL_FACE);
+//        msh.SetLocation(glm::vec3(2.0, -1.0, 0.0));
+//        msh.UpdateShader(lightingShader);
+//        grass.Draw(lightingShader);
+
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        // SECOND PASS
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        screenShader.use();
+        glBindVertexArray(quadVAO);
+        glDisable(GL_DEPTH_TEST);
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

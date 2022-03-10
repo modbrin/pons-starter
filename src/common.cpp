@@ -42,6 +42,9 @@ void Mesh::Draw(Shader &shader)
         texparam_name.append(number);
         glUniform1i(glGetUniformLocation(shader.getID(), texparam_name.c_str()), i);
         glBindTexture(GL_TEXTURE_2D, Textures[i].Id);
+
+//        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+//        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
@@ -94,9 +97,10 @@ void Model::Draw(Shader &shader) {
     }
 }
 
-void Model::loadModel(string path) {
+void Model::loadModel(string path, bool flipUVs) {
     Assimp::Importer import;
-    const aiScene *scene = import.ReadFile(path, aiProcess_Triangulate );
+    auto flags = flipUVs ? aiProcess_Triangulate | aiProcess_FlipUVs : aiProcess_Triangulate;
+    const aiScene *scene = import.ReadFile(path, flags);
 	
     if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) 
     {

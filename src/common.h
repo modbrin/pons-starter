@@ -42,9 +42,9 @@ private:
 class Model 
 {
     public:
-        explicit Model(const std::string& path)
+        explicit Model(const std::string& path, bool flipUVs = false)
         {
-            loadModel(path);
+            loadModel(path, flipUVs);
         }
         void Draw(Shader &shader);	
     private:
@@ -53,7 +53,7 @@ class Model
         std::vector<Texture> textures_loaded; 
         std::string directory;
 
-        void loadModel(std::string path);
+        void loadModel(std::string path, bool flipUVs);
         void processNode(aiNode *node, const aiScene *scene);
         Mesh processMesh(aiMesh *mesh, const aiScene *scene);
         std::vector<Texture> loadMaterialTextures(aiMaterial *mat, aiTextureType type, 
