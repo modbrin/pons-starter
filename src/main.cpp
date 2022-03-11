@@ -1,4 +1,7 @@
 #include <iostream>
+#include <map>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -9,7 +12,7 @@
 #include "camera.h"
 #include "common.h"
 
-int scrWidth = 1000, scrHeight = 1000;
+int scrWidth = 1920, scrHeight = 1080;
 
 float lastX = (float)scrWidth / 2.0f, lastY = (float)scrHeight / 2.0f;
 
@@ -17,6 +20,9 @@ float deltaTime = 0.0f;	// Time between current frame and last frame
 float lastFrame = 0.0f; // Time of last frame
 float mixValue = 0.0f;
 bool firstMouse = true;
+
+std::map<char, Character> Characters;
+GLuint fontBrushVAO, fontBrushVBO;
 
 Camera primaryCamera(glm::vec3(0.0, 0.0, 3.0));
 
@@ -201,6 +207,117 @@ GLuint setupScreenVAO() {
     return quadVAO;
 }
 
+// returns (VAO, VBO)
+std::tuple<GLuint, GLuint> prepareFontBrush() {
+    unsigned int VAO, VBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW); // 6 vertices, 4 floats each
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    return {VAO, VBO};
+}
+
+void prepareFonts() {
+    auto brushInfo = prepareFontBrush();
+    fontBrushVAO = get<0>(brushInfo);
+    fontBrushVBO = get<1>(brushInfo);
+    auto maybeChars = loadFonts("../../fonts/FreeMono.ttf", 25);
+    if (maybeChars.has_value()) {
+        Characters = maybeChars.value();
+    } else {
+        std::cout << "Loading characters failed" << std::endl;
+    }
+}
+
+void RenderText(Shader &s, std::string text, float x, float y, float scale, glm::vec3 color)
+{
+    // activate corresponding render state
+    s.use();
+    s.setVec3("textColor", color);
+    glActiveTexture(GL_TEXTURE0);
+    glBindVertexArray(fontBrushVAO);
+
+    // iterate through all characters
+    std::string::const_iterator c;
+    for (c = text.begin(); c != text.end(); ++c)
+    {
+        Character ch = Characters[*c];
+
+        float xpos = x + ch.Bearing.x * scale;
+        float ypos = y - (ch.Size.y - ch.Bearing.y) * scale;
+
+        float w = ch.Size.x * scale;
+        float h = ch.Size.y * scale;
+        // update VBO for each character
+        float vertices[6][4] = {
+                { xpos,     ypos + h,   0.0f, 0.0f },
+                { xpos,     ypos,       0.0f, 1.0f },
+                { xpos + w, ypos,       1.0f, 1.0f },
+
+                { xpos,     ypos + h,   0.0f, 0.0f },
+                { xpos + w, ypos,       1.0f, 1.0f },
+                { xpos + w, ypos + h,   1.0f, 0.0f }
+        };
+        // render glyph texture over quad
+        glBindTexture(GL_TEXTURE_2D, ch.TextureID);
+        // update content of VBO memory
+        glBindBuffer(GL_ARRAY_BUFFER, fontBrushVBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        // render quad
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        // now advance cursors for next glyph (note that advance is number of 1/64 pixels)
+        x += (ch.Advance >> 6) * scale; // bitshift by 6 to get value in pixels (2^6 = 64)
+    }
+    glBindVertexArray(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+// returns (framebuffer, rendertexture)
+std::tuple<GLuint, GLuint> setupOffscreenRenderTexture() {
+    GLuint fbo;
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, scrWidth, scrHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+
+    GLuint rbo;
+    glGenRenderbuffers(1, &rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, scrWidth, scrHeight);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    return {fbo, texture};
+}
+
+void printFrameInfo(Shader& fontShader) {
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    std::stringstream msLine;
+    msLine << "frame time (ms): " << deltaTime * 1000.f;
+    RenderText(fontShader, msLine.str(), 15.0f, (float)scrHeight - 35.0f, 1.0f, glm::vec3(1.0, 1.0, 1.0));
+    std::stringstream fpsLine;
+    fpsLine << "fps: " << 1.f / deltaTime;
+    RenderText(fontShader, fpsLine.str(), 15.0f, (float)scrHeight - 60.0f, 1.0f, glm::vec3(1.0, 1.0, 1.0));
+}
+
 int main()
 {
     glfwInit();
@@ -230,10 +347,15 @@ int main()
     glfwSetScrollCallback(window, scroll_callback);
 
 
-    Shader lightingShader("../shaders/litModel.vert", "../shaders/litModel.frag");
-//    Shader lightingSourceShader("../shaders/simple.vert", "../shaders/simpleLightSource.frag");
-    Shader outlineColorShader("../shaders/litModel.vert", "../shaders/outlineColor.frag");
-    Shader screenShader("../shaders/screen.vert", "../shaders/screen.frag");
+    Shader lightingShader("../../shaders/litModel.vert", "../../shaders/litModel.frag");
+//    Shader lightingSourceShader("../../shaders/simple.vert", "../../shaders/simpleLightSource.frag");
+    Shader outlineColorShader("../../shaders/litModel.vert", "../../shaders/outlineColor.frag");
+    Shader screenShader("../../shaders/screen.vert", "../../shaders/screen.frag");
+
+    Shader fontShader("../../shaders/text.vert", "../../shaders/text.frag");
+    fontShader.use();
+    glm::mat4 textProjection = glm::ortho(0.0f, (float)scrWidth, 0.0f, (float)scrHeight);
+    fontShader.setMat4("projection", textProjection);
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -249,38 +371,14 @@ int main()
     LightingSetupHelper lsh;
     ModelSetupHelper msh;
 
-//    Model backpack("../assets/backpack/backpack.obj");
-    Model grass("../assets/grass/grass.obj", true);
-    Model sponza("../assets/crytek_sponza/sponza.obj", true);
+    Model backpack("../../assets/backpack/backpack.obj");
+    Model grass("../../assets/grass/grass.obj", true);
+    Model sponza("../../assets/crytek_sponza/sponza.obj", true);
 
-
-    GLuint fbo;
-    glGenFramebuffers(1, &fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, scrWidth, scrHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
-
-    GLuint rbo;
-    glGenRenderbuffers(1, &rbo);
-    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, scrWidth, scrHeight);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
-
-    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
-    }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-//    glDeleteFramebuffers(1, &fbo);
+    auto [fbo, renderTexture] = setupOffscreenRenderTexture();
 
     GLuint quadVAO = setupScreenVAO();
+    prepareFonts();
 
     while(!glfwWindowShouldClose(window))
     {
@@ -290,8 +388,8 @@ int main()
 
         processInput(window);
 
+        // FIRST PASS: Scene to Texture
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        // FIRST PASS
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -300,20 +398,28 @@ int main()
         lightingShader.use();
         lsh.UpdateShader(lightingShader);
 
-        msh.SetLocation(glm::vec3(0.0, -1.0, -2.0));
-//        msh.SetScale(glm::vec3(0.003, 0.1, 0.1));
+        msh.SetLocation(glm::vec3(0.0, -1.0, 3.0));
+        msh.SetRotation(glm::vec3(0.0, 1.0, 0.0), 0.0);
+        msh.SetScale(glm::vec3(1.0, 1.0, 1.0));
         msh.UpdateShader(lightingShader);
-//        backpack.Draw(lightingShader);
-        grass.Draw(lightingShader);
         sponza.Draw(lightingShader);
 
-//        glDisable(GL_CULL_FACE);
-//        msh.SetLocation(glm::vec3(2.0, -1.0, 0.0));
-//        msh.UpdateShader(lightingShader);
-//        grass.Draw(lightingShader);
+        glDisable(GL_CULL_FACE);
+        msh.SetLocation(glm::vec3(2.0, -1.0, 2.5));
+        msh.UpdateShader(lightingShader);
+        grass.Draw(lightingShader);
+        glEnable(GL_CULL_FACE);
 
+
+        msh.SetLocation(glm::vec3(-5.0, -0.3, 2.5));
+        msh.SetRotation(glm::vec3(0.0, 1.0, 0.0), 90.0);
+        msh.SetScale(glm::vec3(0.4, 0.4, 0.4));
+        msh.UpdateShader(lightingShader);
+        backpack.Draw(lightingShader);
+
+
+        // SECOND PASS: Texture to Screen
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        // SECOND PASS
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -321,12 +427,16 @@ int main()
         screenShader.use();
         glBindVertexArray(quadVAO);
         glDisable(GL_DEPTH_TEST);
-        glBindTexture(GL_TEXTURE_2D, texture);
+        glBindTexture(GL_TEXTURE_2D, renderTexture);
         glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        // THIRD PASS: UI
+        printFrameInfo(fontShader);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+    glDeleteFramebuffers(1, &fbo);
 
     glfwTerminate();
     return 0;

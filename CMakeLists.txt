@@ -10,6 +10,7 @@ include_directories(libs/glad/include)
 
 find_package(glfw3 CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
+find_package(freetype CONFIG REQUIRED)
 
 add_executable(learnopengl
         src/main.cpp
@@ -26,4 +27,10 @@ add_executable(learnopengl
 
 target_link_libraries(learnopengl PRIVATE glfw)
 target_link_libraries(learnopengl PRIVATE glad)
+target_link_libraries(learnopengl PRIVATE freetype)
+
+if(WIN32)
+target_link_libraries(learnopengl PRIVATE assimp::assimp)
+elseif(UNIX)
 target_link_libraries(learnopengl PRIVATE assimp)
+endif()
